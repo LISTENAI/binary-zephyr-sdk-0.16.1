@@ -1,0 +1,64 @@
+name: build-package
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    env:
+      ZEPHYR_SDK_VERSION: 0.16.1
+      ZEPHYR_SDK_TOOLCHAIN: arm-zephyr-eabi
+      ZEPHYR_SDK_PUBLISH_DATE: 2023.5
+
+    steps:
+      - name: Download packages
+        uses: knicknic/os-specific-run@v1
+        with:
+          macos: wget -qq https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_macos-x86_64_minimal.tar.xz
+          linux: wget -qq https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz
+          windows: Invoke-WebRequest -Uri https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${Env:ZEPHYR_SDK_VERSION}/zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}_windows-x86_64_minimal.7z -OutFile zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}_windows-x86_64_minimal.7z
+
+      - name: Process packages
+        uses: knicknic/os-specific-run@v1
+        with:
+          macos: |
+            tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_macos-x86_64_minimal.tar.xz -C $TMPDIR && \
+            rm -f zephyr-sdk-${ZEPHYR_SDK_VERSION}_macos-x86_64_minimal.tar.xz && \
+            $TMPDIR/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh -t ${ZEPHYR_SDK_TOOLCHAIN} -c && \
+            mv $TMPDIR/zephyr-sdk-${ZEPHYR_SDK_VERSION} $TMPDIR/binary
+          linux: |
+            tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz -C /opt && \
+            rm -f zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz && \
+            /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh -t ${ZEPHYR_SDK_TOOLCHAIN} -c && \
+            mv /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION} /opt/binary
+          windows: |
+            New-Item -Path $Env:Temp -Name "workspace" -ItemType "directory"
+            7z x zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}_windows-x86_64_minimal.7z -o"${Env:Temp}\workspace"
+            Remove-Item -Path zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}_windows-x86_64_minimal.7z -Force
+            choco install wget -y -r
+            cmd /c "%Temp%\workspace\zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}\setup.cmd /t ${Env:ZEPHYR_SDK_TOOLCHAIN} /c"
+            Rename-Item -Path ${Env:Temp}\workspace\zephyr-sdk-${Env:ZEPHYR_SDK_VERSION} -NewName binary
+
+      - name: Creating Archive
+        uses: knicknic/os-specific-run@v1
+        with:
+          macos: |
+            cd $TMPDIR
+            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-darwin_x64.tar.zst binary
+          linux: |
+            cd /opt
+            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-linux_x64.tar.zst binary
+          windows: |
+            cd ${Env:Temp}\workspace
+            7z a -mx7 "${Env:GITHUB_WORKSPACE}\zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}-${Env:ZEPHYR_SDK_PUBLISH_DATE}-win32_x64.7z" binary
+
+      - name: Publish packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: zephyr-sdk
+          path: zephyr-sdk-*.*
