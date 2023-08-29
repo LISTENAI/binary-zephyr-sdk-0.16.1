@@ -48,14 +48,14 @@ jobs:
         uses: knicknic/os-specific-run@v1
         with:
           macos: |
-            cd $TMPDIR
-            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-darwin_x64.tar.zst binary
+            cd $TMPDIR/binary
+            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-darwin_x64.tar.zst *
           linux: |
-            cd /opt
-            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-linux_x64.tar.zst binary
+            cd /opt/binary
+            ZSTD_CLEVEL=19 tar --zstd -cf ${GITHUB_WORKSPACE}/zephyr-sdk-${ZEPHYR_SDK_VERSION}-${ZEPHYR_SDK_PUBLISH_DATE}-linux_x64.tar.zst *
           windows: |
-            cd ${Env:Temp}\workspace
-            7z a -mx7 "${Env:GITHUB_WORKSPACE}\zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}-${Env:ZEPHYR_SDK_PUBLISH_DATE}-win32_x64.7z" binary
+            cd ${Env:Temp}\workspace\binary
+            7z a -mx7 "${Env:GITHUB_WORKSPACE}\zephyr-sdk-${Env:ZEPHYR_SDK_VERSION}-${Env:ZEPHYR_SDK_PUBLISH_DATE}-win32_x64.7z" *
 
       - name: Publish packages
         uses: actions/upload-artifact@v3
